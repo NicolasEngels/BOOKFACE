@@ -6,11 +6,19 @@
     </head>
     <body >
         <h1>Log in</h1>
+
+        <% if (messages.error) { %>
+            <%= messages.error %>
+        <% } %>
+
+        <form action="./login" method="post">
+            <div><input id="username" name="username" type="text" placeholder="your email"></div>
+            <div><input id="password" name="password" type="password" placeholder="your password"></div>
+            <div><input type="submit" value="login"></div>
+        </form>
         <div>
-            <input id="email" type="text" placeholder="your email">
-            <input id="password" type="password" placeholder="your password">
+            <a href="./"><button>Home</button></a>
+            <a href="./register"><button>register</button></a>
         </div>
-        <a href="./"><button>Home</button></a>
-        <a href="./register"><button>register</button></a>
     </body>
 </html>

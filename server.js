@@ -1,8 +1,22 @@
 // Set up required packages and dependencies
+import dotenv from 'dotenv';
+dotenv.config()
 import express from"express";
 import mongoose from"mongoose";
 import bodyParser from"body-parser";
 import Users from './users.js';
+import bcrypt from 'bcrypt';
+import flash from 'express-flash';
+import session from "express-session";
+import passport from 'passport';
+
+import initializePassport from "./passport-config.js";
+initializePassport(
+  passport,
+  (email) => Users.find((user) => user.email === email),
+  (id) => Users.find((user) => user.id === id)
+);
+
 
 // Set up MongoDB connection
 mongoose.set("strictQuery", true);
@@ -20,6 +34,15 @@ const app = express();
 
 // Set up EJS as the view engine
 app.set("view engine", "ejs");
+app.use(express.urlencoded({extended:false}))
+app.use(flash());
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false
+}))
+app.use(passport.initialize())
+app.use(passport.session())
 
 // Use body-parser to parse form data sent via HTTP POST
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -36,26 +59,51 @@ app.get("/register", (req, res) => {
   res.render("register");
 });
 
-app.post("/register", (req, res) => {
-    let {name, email, password} = req.body;
-    console.log(req.body)
+app.post("/register", async (req, res) => {
 
-    const newUser = new Users({
-      name: req.body.name,
-      email: req.body.email,
-      password: req.body.password
-    });
+  const { name, email, password } = req.body;
 
-    newUser.save();
+  let errors = [];
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  if (!name || !email || !password) {
+    errors.push({ msg: "Please fill in all fields" });
+  }
+
+  if (password.length < 6) {
+    errors.push({ msg: "password atleast 6 characters" });
+  }
+
+  if (errors.length > 0) {
+    res.render("register", {errors});
+  }else{
+    Users.findOne({email : email}).exec((err,user)=>{
+    console.log(user);   
+    if(user) {
+        errors.push({msg: 'email already registered'});
+        res.render("register", { errors });  
+    }else{
+      const newUser = new Users({
+          name : name,
+          email : email,
+          password : hashedPassword
+      });
+      newUser.save();
+      res.redirect('/login');
+    }
+  })} 
 });
 
-app.get("/test", (req, res) => {
-  res.json(Users.find({}));
-});
+app.get('/login', (req, res)=>{
+  res.render('login');
+})
 
-app.get("/login", (req, res) => {
-  res.render("login");
-});
+app.post("/login", function(req, res, next){passport.authenticate('local', {
+  successRedirect: '/dashboard',
+  failureRedirect: '/login',
+  failureFlash: true
+})(req, res, next)})
 
 // Start the server on port 3000
 app.listen(3000, () => {
